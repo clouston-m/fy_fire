@@ -42,32 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${inter.className} min-h-screen bg-background antialiased`}>
-        {/* ── Sticky Header ── */}
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="mx-auto flex h-14 max-w-2xl items-center px-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-black tracking-tight">fy_fire</span>
-              <span className="hidden text-sm text-muted-foreground sm:block">
-                FIRE Calculator UK
-              </span>
-            </div>
-          </div>
-        </header>
-
         {/* ── Main Content ── */}
         <main className="mx-auto max-w-2xl">{children}</main>
-
-        {/* ── Footer Disclaimer ── */}
-        <footer className="mt-auto border-t">
-          <div className="mx-auto max-w-2xl px-4 py-6">
-            <p className="text-center text-xs leading-relaxed text-muted-foreground">
-              <strong>Not financial advice.</strong> fy_fire is an educational tool to help you
-              explore FIRE concepts. All calculations use simplified assumptions and past returns do
-              not guarantee future results. Please consult a qualified financial adviser before
-              making investment decisions.
-            </p>
-          </div>
-        </footer>
 
         {/* Service Worker registration */}
         <script

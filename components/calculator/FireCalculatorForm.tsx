@@ -41,7 +41,7 @@ const STEPS: WizardStep[] = [
   {
     type: 'currency',
     field: 'monthlySpending',
-    title: 'How much do you\nspend each month\nin retirement?',
+    title: 'How much will you\nspend each month\nin retirement?',
     subtitle: 'Your expected monthly living costs once you stop working.',
     hint: 'Include rent/mortgage, food, travel, leisure',
   },
