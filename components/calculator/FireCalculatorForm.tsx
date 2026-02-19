@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -105,21 +105,11 @@ export function FireCalculatorForm() {
   const [inputs, setInputs] = useState<FireInputs>(DEFAULT_INPUTS);
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Load persisted inputs on mount
   useEffect(() => {
     setInputs(loadInputs());
   }, []);
-
-  // Auto-focus currency inputs on step change
-  useEffect(() => {
-    const step = STEPS[stepIndex];
-    if (step?.type === 'currency') {
-      const timer = setTimeout(() => inputRef.current?.focus(), 200);
-      return () => clearTimeout(timer);
-    }
-  }, [stepIndex]);
 
   const updateField = (key: keyof FireInputs, value: number) => {
     setInputs((prev) => {
@@ -219,7 +209,6 @@ export function FireCalculatorForm() {
             step={step}
             value={inputs[step.field]}
             onChange={(v) => updateField(step.field, v)}
-            inputRef={inputRef}
             onEnter={canContinue ? goNext : undefined}
           />
         )}
@@ -250,11 +239,10 @@ interface CurrencyStepInputProps {
   step: CurrencyStep;
   value: number;
   onChange: (v: number) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
   onEnter?: () => void;
 }
 
-function CurrencyStepInput({ step, value, onChange, inputRef, onEnter }: CurrencyStepInputProps) {
+function CurrencyStepInput({ step, value, onChange, onEnter }: CurrencyStepInputProps) {
   const [displayValue, setDisplayValue] = useState(value === 0 ? '' : String(value));
 
   useEffect(() => {
@@ -269,7 +257,6 @@ function CurrencyStepInput({ step, value, onChange, inputRef, onEnter }: Currenc
           £
         </span>
         <input
-          ref={inputRef}
           type="number"
           inputMode="decimal"
           min={0}
