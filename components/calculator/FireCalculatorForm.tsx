@@ -1,67 +1,289 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { FireResults } from '@/components/calculator/FireResults';
 import { calculateFire } from '@/lib/calculations';
-import { loadInputs, saveInputs, clearInputs } from '@/lib/storage';
-import type { FireInputs, FireResults as FireResultsType } from '@/lib/types';
+import { loadInputs, saveInputs } from '@/lib/storage';
+import type { FireInputs } from '@/lib/types';
 import { DEFAULT_INPUTS, INPUT_CONSTRAINTS } from '@/lib/types';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Step Types ───────────────────────────────────────────────────────────────
 
-function parsePositiveNumber(value: string): number {
+type CurrencyStep = {
+  type: 'currency';
+  field: keyof FireInputs;
+  title: string;
+  subtitle: string;
+  hint?: string;
+  allowZero?: boolean;
+};
+
+type SliderStep = {
+  type: 'slider';
+  field: keyof FireInputs;
+  title: string;
+  subtitle: string;
+  min: number;
+  max: number;
+  sliderStep: number;
+  unit: string;
+  description: string;
+};
+
+type WizardStep = CurrencyStep | SliderStep;
+
+// ─── Step Config ──────────────────────────────────────────────────────────────
+
+const STEPS: WizardStep[] = [
+  {
+    type: 'currency',
+    field: 'monthlySpending',
+    title: 'How much do you\nspend each month\nin retirement?',
+    subtitle: 'Your expected monthly living costs once you stop working.',
+    hint: 'Include rent/mortgage, food, travel, leisure',
+  },
+  {
+    type: 'currency',
+    field: 'currentNetWorth',
+    title: "What's your current\ninvested net worth?",
+    subtitle: 'Total value of investments, ISAs, pensions across all accounts.',
+    allowZero: true,
+  },
+  {
+    type: 'currency',
+    field: 'monthlyIncome',
+    title: "What's your gross\nmonthly income?",
+    subtitle: 'Your total monthly income before tax and deductions.',
+  },
+  {
+    type: 'currency',
+    field: 'monthlyContributions',
+    title: 'How much do you\ninvest each month?',
+    subtitle: 'Monthly contributions across all investment accounts.',
+  },
+  {
+    type: 'slider',
+    field: 'withdrawalRate',
+    title: 'Safe withdrawal\nrate',
+    subtitle: "The percentage you'll draw from your portfolio each year.",
+    min: INPUT_CONSTRAINTS.withdrawalRate.min,
+    max: INPUT_CONSTRAINTS.withdrawalRate.max,
+    sliderStep: INPUT_CONSTRAINTS.withdrawalRate.step,
+    unit: '%',
+    description:
+      'The 4% rule is the classic FIRE benchmark — research suggests a 4% annual withdrawal has historically lasted 30+ years. Lower rates are more conservative.',
+  },
+  {
+    type: 'slider',
+    field: 'expectedReturn',
+    title: 'Expected annual\nreturn',
+    subtitle: 'Your estimated average annual portfolio growth.',
+    min: INPUT_CONSTRAINTS.expectedReturn.min,
+    max: INPUT_CONSTRAINTS.expectedReturn.max,
+    sliderStep: INPUT_CONSTRAINTS.expectedReturn.step,
+    unit: '%',
+    description:
+      'Global index funds have historically returned 6–8% annually before inflation. A conservative estimate of 5–6% is common for long-term planning.',
+  },
+];
+
+const TOTAL_STEPS = STEPS.length; // 6
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function parseCurrency(value: string): number {
   const parsed = parseFloat(value.replace(/,/g, ''));
   return isNaN(parsed) || parsed < 0 ? 0 : parsed;
 }
 
-interface CurrencyInputProps {
-  id: string;
-  label: string;
-  hint?: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export function FireCalculatorForm() {
+  const [inputs, setInputs] = useState<FireInputs>(DEFAULT_INPUTS);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [direction, setDirection] = useState<'forward' | 'back'>('forward');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load persisted inputs on mount
+  useEffect(() => {
+    setInputs(loadInputs());
+  }, []);
+
+  // Auto-focus currency inputs on step change
+  useEffect(() => {
+    const step = STEPS[stepIndex];
+    if (step?.type === 'currency') {
+      const timer = setTimeout(() => inputRef.current?.focus(), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [stepIndex]);
+
+  const updateField = (key: keyof FireInputs, value: number) => {
+    setInputs((prev) => {
+      const next = { ...prev, [key]: value };
+      saveInputs(next);
+      return next;
+    });
+  };
+
+  const goNext = () => {
+    setDirection('forward');
+    setStepIndex((i) => i + 1);
+    window.scrollTo(0, 0);
+  };
+
+  const goBack = () => {
+    setDirection('back');
+    setStepIndex((i) => i - 1);
+    window.scrollTo(0, 0);
+  };
+
+  const animClass = direction === 'forward' ? 'wizard-enter-forward' : 'wizard-enter-back';
+
+  // ── Results screen (stepIndex === 6) ──────────────────────────────────────
+
+  if (stepIndex === TOTAL_STEPS) {
+    const results = calculateFire(inputs);
+    return (
+      <div>
+        <div className="flex items-center px-4 min-h-[44px] pt-2">
+          <button
+            onClick={goBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] min-w-[44px]"
+            aria-label="Back"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </button>
+        </div>
+
+        <div key={stepIndex} className={`px-4 pb-10 ${animClass}`}>
+          <h2 className="text-[1.75rem] font-bold mb-6">Your FIRE Plan</h2>
+          <FireResults results={results} inputs={inputs} />
+          <div className="mt-8 flex justify-center">
+            <Button variant="ghost" onClick={goBack} className="text-muted-foreground">
+              ← Edit answers
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Input step screen ─────────────────────────────────────────────────────
+
+  const step = STEPS[stepIndex];
+
+  const canContinue =
+    step.type === 'slider' ? true : step.allowZero ? true : inputs[step.field] > 0;
+
+  return (
+    <div>
+      {/* Progress bar */}
+      <div className="h-1 bg-muted w-full">
+        <div
+          className="h-full bg-primary transition-[width] duration-500"
+          style={{ width: `${((stepIndex + 1) / TOTAL_STEPS) * 100}%` }}
+        />
+      </div>
+
+      {/* Nav bar */}
+      <div className="flex items-center justify-between px-4 min-h-[44px]">
+        {stepIndex > 0 ? (
+          <button
+            onClick={goBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] min-w-[44px]"
+            aria-label="Back"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </button>
+        ) : (
+          <div />
+        )}
+        <span className="text-sm text-muted-foreground">
+          {stepIndex + 1} / {TOTAL_STEPS}
+        </span>
+      </div>
+
+      {/* Animated content */}
+      <div key={stepIndex} className={`px-4 pt-10 pb-8 ${animClass}`}>
+        <h2 className="text-[1.75rem] font-bold whitespace-pre-line mb-2">{step.title}</h2>
+        <p className="text-muted-foreground mb-8">{step.subtitle}</p>
+
+        {step.type === 'currency' && (
+          <CurrencyStepInput
+            step={step}
+            value={inputs[step.field]}
+            onChange={(v) => updateField(step.field, v)}
+            inputRef={inputRef}
+            onEnter={canContinue ? goNext : undefined}
+          />
+        )}
+
+        {step.type === 'slider' && (
+          <SliderStepInput
+            step={step}
+            value={inputs[step.field]}
+            onChange={(v) => updateField(step.field, v)}
+          />
+        )}
+
+        <Button
+          className="w-full h-14 mt-10 text-base"
+          onClick={goNext}
+          disabled={!canContinue}
+        >
+          {stepIndex === TOTAL_STEPS - 1 ? 'See my FIRE number →' : 'Continue'}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
-function CurrencyInput({ id, label, hint, value, onChange, min = 0 }: CurrencyInputProps) {
+// ─── Currency Step Input ──────────────────────────────────────────────────────
+
+interface CurrencyStepInputProps {
+  step: CurrencyStep;
+  value: number;
+  onChange: (v: number) => void;
+  inputRef: React.RefObject<HTMLInputElement>;
+  onEnter?: () => void;
+}
+
+function CurrencyStepInput({ step, value, onChange, inputRef, onEnter }: CurrencyStepInputProps) {
   const [displayValue, setDisplayValue] = useState(value === 0 ? '' : String(value));
 
-  // Sync external value changes (e.g. reset)
   useEffect(() => {
     setDisplayValue(value === 0 ? '' : String(value));
   }, [value]);
 
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-base">
-        {label}
-      </Label>
-      {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
+    <div>
+      {step.hint && <p className="text-sm text-muted-foreground mb-4">{step.hint}</p>}
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground select-none">
           £
         </span>
-        <Input
-          id={id}
+        <input
+          ref={inputRef}
           type="number"
           inputMode="decimal"
-          min={min}
+          min={0}
           step="100"
-          className="pl-7"
+          placeholder="0"
+          className="w-full h-14 pl-10 pr-4 text-2xl border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0"
           value={displayValue}
           onChange={(e) => {
             setDisplayValue(e.target.value);
-            onChange(parsePositiveNumber(e.target.value));
+            onChange(parseCurrency(e.target.value));
           }}
-          onBlur={() => {
-            // Re-sync display on blur to clean up empty state
-            setDisplayValue(value === 0 ? '' : String(value));
+          onBlur={() => setDisplayValue(value === 0 ? '' : String(value))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && onEnter) onEnter();
           }}
         />
       </div>
@@ -69,209 +291,43 @@ function CurrencyInput({ id, label, hint, value, onChange, min = 0 }: CurrencyIn
   );
 }
 
-interface SliderInputProps {
-  id: string;
-  label: string;
+// ─── Slider Step Input ────────────────────────────────────────────────────────
+
+interface SliderStepInputProps {
+  step: SliderStep;
   value: number;
-  min: number;
-  max: number;
-  step: number;
-  unit: string;
-  onChange: (value: number) => void;
+  onChange: (v: number) => void;
 }
 
-function SliderInput({ id, label, value, min, max, step, unit, onChange }: SliderInputProps) {
+function SliderStepInput({ step, value, onChange }: SliderStepInputProps) {
+  const decimals = step.sliderStep < 1 ? 1 : 0;
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Label htmlFor={id} className="text-base">
-          {label}
-        </Label>
-        <span className="text-sm font-semibold tabular-nums">
-          {value.toFixed(step < 1 ? 1 : 0)}
-          {unit}
-        </span>
+    <div className="space-y-8">
+      <div className="text-center">
+        <span className="text-7xl font-bold tabular-nums">{value.toFixed(decimals)}</span>
+        <span className="text-3xl font-bold text-muted-foreground">{step.unit}</span>
       </div>
       <Slider
-        id={id}
-        min={min}
-        max={max}
-        step={step}
+        min={step.min}
+        max={step.max}
+        step={step.sliderStep}
         value={[value]}
         onValueChange={([v]) => onChange(v)}
         className="py-1"
-        aria-label={label}
+        aria-label={step.title}
       />
-      <div className="flex justify-between text-xs text-muted-foreground">
+      <div className="flex justify-between text-sm text-muted-foreground">
         <span>
-          {min}
-          {unit}
+          {step.min}
+          {step.unit}
         </span>
         <span>
-          {max}
-          {unit}
+          {step.max}
+          {step.unit}
         </span>
       </div>
-    </div>
-  );
-}
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-function validateInputs(inputs: FireInputs): string[] {
-  const errors: string[] = [];
-  if (inputs.monthlySpending <= 0) errors.push('Monthly spending must be greater than £0.');
-  if (inputs.monthlyIncome <= 0) errors.push('Monthly income must be greater than £0.');
-  if (inputs.monthlyContributions > inputs.monthlyIncome)
-    errors.push('Monthly contributions cannot exceed monthly income.');
-  return errors;
-}
-
-// ─── Main Form Component ──────────────────────────────────────────────────────
-
-export function FireCalculatorForm() {
-  const [inputs, setInputs] = useState<FireInputs>(DEFAULT_INPUTS);
-  const [results, setResults] = useState<FireResultsType | null>(null);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [isCalculating, setIsCalculating] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
-
-  // Load persisted inputs once on mount
-  useEffect(() => {
-    const saved = loadInputs();
-    setInputs(saved);
-    setHasLoaded(true);
-  }, []);
-
-  // Auto-calculate and persist whenever inputs change (after initial load)
-  useEffect(() => {
-    if (!hasLoaded) return;
-
-    const validationErrors = validateInputs(inputs);
-    setErrors(validationErrors);
-
-    if (validationErrors.length === 0) {
-      setIsCalculating(true);
-      // rAF keeps UI responsive for any future heavy calculations
-      const id = requestAnimationFrame(() => {
-        setResults(calculateFire(inputs));
-        setIsCalculating(false);
-      });
-      return () => cancelAnimationFrame(id);
-    } else {
-      setResults(null);
-    }
-
-    saveInputs(inputs);
-  }, [inputs, hasLoaded]);
-
-  const updateField = useCallback(<K extends keyof FireInputs>(key: K, value: FireInputs[K]) => {
-    setInputs((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
-  const handleReset = () => {
-    clearInputs();
-    setInputs(DEFAULT_INPUTS);
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* ── Input Form ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Your Numbers</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Retirement spending */}
-          <CurrencyInput
-            id="monthlySpending"
-            label="Monthly spending in retirement"
-            hint="How much do you need to live on each month?"
-            value={inputs.monthlySpending}
-            onChange={(v) => updateField('monthlySpending', v)}
-          />
-
-          {/* Current situation */}
-          <Separator />
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Current Situation
-            </h3>
-            <CurrencyInput
-              id="currentNetWorth"
-              label="Current invested net worth"
-              hint="Total value of investments, ISAs, pensions (all accounts)"
-              value={inputs.currentNetWorth}
-              onChange={(v) => updateField('currentNetWorth', v)}
-            />
-            <CurrencyInput
-              id="monthlyIncome"
-              label="Gross monthly income"
-              hint="Your total monthly income before tax"
-              value={inputs.monthlyIncome}
-              onChange={(v) => updateField('monthlyIncome', v)}
-            />
-            <CurrencyInput
-              id="monthlyContributions"
-              label="Monthly contributions"
-              hint="How much you invest each month across all accounts"
-              value={inputs.monthlyContributions}
-              onChange={(v) => updateField('monthlyContributions', v)}
-            />
-          </div>
-
-          {/* Assumptions */}
-          <Separator />
-          <div className="space-y-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Assumptions
-            </h3>
-            <SliderInput
-              id="withdrawalRate"
-              label="Withdrawal rate"
-              value={inputs.withdrawalRate}
-              min={INPUT_CONSTRAINTS.withdrawalRate.min}
-              max={INPUT_CONSTRAINTS.withdrawalRate.max}
-              step={INPUT_CONSTRAINTS.withdrawalRate.step}
-              unit="%"
-              onChange={(v) => updateField('withdrawalRate', v)}
-            />
-            <SliderInput
-              id="expectedReturn"
-              label="Expected annual return"
-              value={inputs.expectedReturn}
-              min={INPUT_CONSTRAINTS.expectedReturn.min}
-              max={INPUT_CONSTRAINTS.expectedReturn.max}
-              step={INPUT_CONSTRAINTS.expectedReturn.step}
-              unit="%"
-              onChange={(v) => updateField('expectedReturn', v)}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Validation Errors ── */}
-      {errors.length > 0 && (
-        <div
-          role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
-        >
-          <ul className="list-inside list-disc space-y-1">
-            {errors.map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* ── Results ── */}
-      {results && !isCalculating && <FireResults results={results} inputs={inputs} />}
-
-      {/* ── Reset ── */}
-      <div className="flex justify-center pb-2">
-        <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">
-          Reset to defaults
-        </Button>
+      <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground leading-relaxed">
+        {step.description}
       </div>
     </div>
   );
