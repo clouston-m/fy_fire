@@ -1,4 +1,5 @@
 import type { FireInputs, FireResults, CalculationParams } from './types';
+import { PENSION_ACCESS_AGE } from './types';
 
 // ─── Formatting Helpers ───────────────────────────────────────────────────────
 
@@ -92,6 +93,32 @@ export function calcSavingsRate(monthlyContributions: number, monthlyIncome: num
   return (monthlyContributions / monthlyIncome) * 100;
 }
 
+/**
+ * Project the future value of an investment account.
+ *
+ * FV = PV × (1 + r)^n + PMT × ((1 + r)^n - 1) / r
+ *
+ * Where r is the monthly rate and n is the number of months.
+ * Handles 0% return (linear) and years ≤ 0 (returns present value unchanged).
+ */
+export function calcFutureValue(
+  presentValue: number,
+  monthlyContribution: number,
+  annualReturnRate: number,
+  years: number,
+): number {
+  if (years <= 0) return presentValue;
+  const months = Math.round(years * 12);
+  const monthlyRate = annualReturnRate / 12;
+
+  if (monthlyRate === 0) {
+    return presentValue + monthlyContribution * months;
+  }
+
+  const growthFactor = Math.pow(1 + monthlyRate, months);
+  return presentValue * growthFactor + monthlyContribution * ((growthFactor - 1) / monthlyRate);
+}
+
 // ─── Main Calculation Orchestrator ───────────────────────────────────────────
 
 /**
@@ -100,36 +127,44 @@ export function calcSavingsRate(monthlyContributions: number, monthlyIncome: num
  */
 export function calculateFire(inputs: FireInputs): FireResults {
   const {
+    currentAge,
+    targetRetirementAge,
     monthlySpending,
     withdrawalRate,
-    currentNetWorth,
+    isaBalance,
+    pensionBalance,
+    giaBalance,
     monthlyIncome,
-    monthlyContributions,
+    monthlyISAContributions,
+    monthlyPensionContributions,
     expectedReturn,
   } = inputs;
 
+  // ── Derived totals ──
+  const totalNetWorth = isaBalance + pensionBalance + giaBalance;
+  const totalMonthlyContributions = monthlyISAContributions + monthlyPensionContributions;
+
+  // ── Core FIRE calculations (use totals) ──
   const annualExpenses = monthlySpending * 12;
   const fireNumber = calcFireNumber(monthlySpending, withdrawalRate);
-  const gapToFire = Math.max(0, fireNumber - currentNetWorth);
-  const alreadyFire = currentNetWorth >= fireNumber;
+  const gapToFire = Math.max(0, fireNumber - totalNetWorth);
+  const alreadyFire = totalNetWorth >= fireNumber;
 
-  // Progress: clamp to 0–100
   const progressPercent = fireNumber > 0
-    ? Math.min(100, (currentNetWorth / fireNumber) * 100)
+    ? Math.min(100, (totalNetWorth / fireNumber) * 100)
     : 0;
 
-  const savingsRate = calcSavingsRate(monthlyContributions, monthlyIncome);
+  const savingsRate = calcSavingsRate(totalMonthlyContributions, monthlyIncome);
 
   const yearsToFire = alreadyFire
     ? 0
     : calcYearsToFire({
-        currentNetWorth,
-        monthlyContributions,
+        currentNetWorth: totalNetWorth,
+        monthlyContributions: totalMonthlyContributions,
         annualReturnRate: expectedReturn / 100,
         fireNumber,
       });
 
-  // Project the FIRE date from today
   let projectedFireDate: Date | null = null;
   if (yearsToFire !== null && !alreadyFire) {
     const date = new Date();
@@ -137,17 +172,56 @@ export function calculateFire(inputs: FireInputs): FireResults {
     date.setMonth(date.getMonth() + totalMonths);
     projectedFireDate = date;
   } else if (alreadyFire) {
-    projectedFireDate = new Date(); // already there
+    projectedFireDate = new Date();
+  }
+
+  // ── Age / retirement horizon ──
+  const yearsToRetirement = targetRetirementAge - currentAge;
+  const yearsUntilPensionAccess = PENSION_ACCESS_AGE - targetRetirementAge;
+  const requiresBridge = targetRetirementAge < PENSION_ACCESS_AGE;
+
+  // ── Bridge calculations ──
+  let isaGapYears: number | undefined;
+  let isaBridgeNeeded: number | undefined;
+  let projectedISAAtRetirement: number | undefined;
+  let projectedGIAAtRetirement: number | undefined;
+  let projectedAccessibleAtRetirement: number | undefined;
+  let isBridgeViable: boolean | undefined;
+  let bridgeShortfall: number | undefined;
+
+  if (requiresBridge) {
+    isaGapYears = PENSION_ACCESS_AGE - targetRetirementAge;
+    isaBridgeNeeded = isaGapYears * annualExpenses;
+
+    const annualRate = expectedReturn / 100;
+    projectedISAAtRetirement = calcFutureValue(isaBalance, monthlyISAContributions, annualRate, yearsToRetirement);
+    projectedGIAAtRetirement = calcFutureValue(giaBalance, 0, annualRate, yearsToRetirement);
+    projectedAccessibleAtRetirement = projectedISAAtRetirement + projectedGIAAtRetirement;
+
+    isBridgeViable = projectedAccessibleAtRetirement >= isaBridgeNeeded;
+    bridgeShortfall = Math.max(0, isaBridgeNeeded - projectedAccessibleAtRetirement);
   }
 
   return {
     annualExpenses,
     fireNumber,
+    totalNetWorth,
+    totalMonthlyContributions,
     gapToFire,
     progressPercent,
     savingsRate,
     yearsToFire,
     projectedFireDate,
     alreadyFire,
+    yearsToRetirement,
+    yearsUntilPensionAccess,
+    requiresBridge,
+    isaGapYears,
+    isaBridgeNeeded,
+    projectedISAAtRetirement,
+    projectedGIAAtRetirement,
+    projectedAccessibleAtRetirement,
+    isBridgeViable,
+    bridgeShortfall,
   };
 }

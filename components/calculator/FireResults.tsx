@@ -10,7 +10,8 @@ import {
   formatMonthYear,
 } from '@/lib/calculations';
 import type { FireResults as FireResultsType, FireInputs } from '@/lib/types';
-import { TrendingUp, Target, Calendar, Zap, PiggyBank } from 'lucide-react';
+import { PENSION_ACCESS_AGE } from '@/lib/types';
+import { TrendingUp, Target, Calendar, Zap, PiggyBank, ShieldCheck, TriangleAlert } from 'lucide-react';
 
 interface FireResultsProps {
   results: FireResultsType;
@@ -50,13 +51,26 @@ export function FireResults({ results, inputs }: FireResultsProps) {
   const {
     annualExpenses,
     fireNumber,
+    totalNetWorth,
+    totalMonthlyContributions,
     gapToFire,
     progressPercent,
     savingsRate,
     yearsToFire,
     projectedFireDate,
     alreadyFire,
+    yearsToRetirement,
+    requiresBridge,
+    isaGapYears,
+    isaBridgeNeeded,
+    projectedISAAtRetirement,
+    projectedGIAAtRetirement,
+    projectedAccessibleAtRetirement,
+    isBridgeViable,
+    bridgeShortfall,
   } = results;
+
+  const { currentAge, targetRetirementAge, monthlyIncome } = inputs;
 
   const yearsLabel =
     yearsToFire === null
@@ -71,6 +85,17 @@ export function FireResults({ results, inputs }: FireResultsProps) {
       : projectedFireDate
       ? formatMonthYear(projectedFireDate)
       : '—';
+
+  // Projected age at FIRE
+  const projectedFireAge =
+    yearsToFire !== null && !alreadyFire
+      ? Math.round(currentAge + yearsToFire)
+      : null;
+
+  const yearsBehindTarget =
+    projectedFireAge !== null
+      ? projectedFireAge - targetRetirementAge
+      : null;
 
   return (
     <div className="space-y-4">
@@ -109,10 +134,42 @@ export function FireResults({ results, inputs }: FireResultsProps) {
             </div>
             <Progress value={progressPercent} className="h-3" />
             <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
-              <span>{formatCurrency(inputs.currentNetWorth)}</span>
+              <span>{formatCurrency(totalNetWorth)}</span>
               <span>{formatCurrency(fireNumber)}</span>
             </div>
           </div>
+
+          {/* Target vs Reality */}
+          {!alreadyFire && (
+            <div className="rounded-lg border border-border p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Your target</span>
+                <span className="font-medium tabular-nums">
+                  Retire at {targetRetirementAge} (in {Math.max(0, yearsToRetirement).toFixed(0)} yrs)
+                </span>
+              </div>
+              {projectedFireAge !== null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">FIRE number reached</span>
+                  <span className="font-medium tabular-nums">
+                    Age {projectedFireAge} ({yearsLabel})
+                  </span>
+                </div>
+              )}
+              {yearsBehindTarget !== null && yearsBehindTarget > 0 && (
+                <div className="flex justify-between text-amber-600 dark:text-amber-400 font-medium">
+                  <span>Behind target</span>
+                  <span>{yearsBehindTarget} yr{yearsBehindTarget !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+              {yearsBehindTarget !== null && yearsBehindTarget <= 0 && projectedFireAge !== null && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span>Ahead of target</span>
+                  <span>{Math.abs(yearsBehindTarget)} yr{Math.abs(yearsBehindTarget) !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Projected Date */}
           {!alreadyFire && projectedFireDate && (
@@ -142,6 +199,101 @@ export function FireResults({ results, inputs }: FireResultsProps) {
         </CardContent>
       </Card>
 
+      {/* ── ISA Bridge ── */}
+      {requiresBridge ? (
+        <Card className={isBridgeViable ? '' : 'border-amber-300 dark:border-amber-700'}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              {isBridgeViable ? (
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              ) : (
+                <TriangleAlert className="h-4 w-4 text-amber-500" />
+              )}
+              ISA Bridge (Age {targetRetirementAge} → {PENSION_ACCESS_AGE})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Bridge period</span>
+              <span className="font-medium tabular-nums">{isaGapYears} years</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Bridge needed</span>
+              <span className="font-medium tabular-nums">
+                {formatCurrency(isaBridgeNeeded!)}
+                <span className="text-xs text-muted-foreground ml-1">
+                  ({isaGapYears} yrs × {formatCurrency(annualExpenses)}/yr)
+                </span>
+              </span>
+            </div>
+
+            <Separator />
+
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              Accessible at retirement (projected)
+            </p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">ISA</span>
+                <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(projectedISAAtRetirement!)}
+                  <span className="text-xs text-muted-foreground ml-1">(tax-free)</span>
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">GIA</span>
+                <span className="font-medium tabular-nums">
+                  {formatCurrency(projectedGIAAtRetirement!)}
+                  <span className="text-xs text-muted-foreground ml-1">(subject to CGT)</span>
+                </span>
+              </div>
+              <div className="flex justify-between font-semibold pt-1 border-t border-border">
+                <span>Total accessible</span>
+                <span className="tabular-nums">{formatCurrency(projectedAccessibleAtRetirement!)}</span>
+              </div>
+            </div>
+
+            {isBridgeViable ? (
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 p-3 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium">
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                Bridge covered — your ISA + GIA will fund the gap to pension access
+              </div>
+            ) : (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium">
+                  <TriangleAlert className="h-4 w-4 shrink-0" />
+                  Bridge shortfall: {formatCurrency(bridgeShortfall!)}
+                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  Your projected ISA + GIA won&apos;t cover the gap between retirement ({targetRetirementAge}) and pension access ({PENSION_ACCESS_AGE}).
+                  Use the Optimise phase to rebalance your ISA/pension split.
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1 leading-relaxed">
+              <p className="font-medium">Phase 1 (age {targetRetirementAge}–{PENSION_ACCESS_AGE}): Draw from ISA and GIA</p>
+              <p className="font-medium">Phase 2 (age {PENSION_ACCESS_AGE}+): Access pension + remaining accessible funds</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
+              <div>
+                <p className="font-semibold text-sm">No Bridge Needed</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  You can access your pension immediately at retirement (age{' '}
+                  {targetRetirementAge} ≥ {PENSION_ACCESS_AGE}).
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Stat Grid ── */}
       <Card>
         <CardContent className="pt-6">
@@ -168,7 +320,7 @@ export function FireResults({ results, inputs }: FireResultsProps) {
               icon={<PiggyBank className="h-5 w-5" />}
               label="Savings rate"
               value={formatPercent(savingsRate)}
-              sub={`${formatCurrency(inputs.monthlyContributions)}/mo of ${formatCurrency(inputs.monthlyIncome)}/mo income`}
+              sub={`${formatCurrency(totalMonthlyContributions)}/mo of ${formatCurrency(monthlyIncome)}/mo income`}
               highlight={savingsRate >= 40}
             />
           </div>
