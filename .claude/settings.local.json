@@ -16,7 +16,17 @@
       "Bash(brew install:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npx vercel:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(python3:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(git push:*)",
+      "Bash(git:*)",
+      "Bash(echo vercel CLI not found:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm run:*)"
     ]
   }
 }

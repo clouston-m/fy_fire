@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { FireResults } from '@/components/calculator/FireResults';
-import { calculateFire, formatCurrency } from '@/lib/calculations';
-import { loadInputs, saveInputs } from '@/lib/storage';
+import { formatCurrency } from '@/lib/calculations';
+import { loadInputs, saveInputs, markPlanComplete } from '@/lib/storage';
 import type { FireInputs } from '@/lib/types';
 import { DEFAULT_INPUTS, INPUT_CONSTRAINTS, PENSION_ACCESS_AGE } from '@/lib/types';
 
@@ -179,6 +179,7 @@ function calcBreakdownTotal(step: CurrencyBreakdownStep, inputs: FireInputs): nu
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function FireCalculatorForm() {
+  const router = useRouter();
   const [inputs, setInputs] = useState<FireInputs>(DEFAULT_INPUTS);
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
@@ -197,6 +198,11 @@ export function FireCalculatorForm() {
   };
 
   const goNext = () => {
+    if (stepIndex === TOTAL_STEPS - 1) {
+      markPlanComplete();
+      router.push('/pathway');
+      return;
+    }
     setDirection('forward');
     setStepIndex((i) => i + 1);
     window.scrollTo(0, 0);
@@ -209,36 +215,6 @@ export function FireCalculatorForm() {
   };
 
   const animClass = direction === 'forward' ? 'wizard-enter-forward' : 'wizard-enter-back';
-
-  // ── Results screen (stepIndex === TOTAL_STEPS) ─────────────────────────────
-
-  if (stepIndex === TOTAL_STEPS) {
-    const results = calculateFire(inputs);
-    return (
-      <div>
-        <div className="flex items-center px-4 min-h-[44px] pt-2">
-          <button
-            onClick={goBack}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] min-w-[44px]"
-            aria-label="Back"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back
-          </button>
-        </div>
-
-        <div key={stepIndex} className={`px-4 pb-10 ${animClass}`}>
-          <h2 className="text-[1.75rem] font-bold mb-6">Your FIRE Plan</h2>
-          <FireResults results={results} inputs={inputs} />
-          <div className="mt-8 flex justify-center">
-            <Button variant="ghost" onClick={goBack} className="text-muted-foreground">
-              ← Edit answers
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // ── Input step screen ─────────────────────────────────────────────────────
 

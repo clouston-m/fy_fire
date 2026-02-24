@@ -55,3 +55,23 @@ export function clearInputs(): void {
     // Ignore storage errors
   }
 }
+
+const PLAN_COMPLETE_KEY = 'fy_fire_plan_complete';
+
+/** Mark the Plan phase as completed. */
+export function markPlanComplete(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(PLAN_COMPLETE_KEY, '1');
+  } catch {}
+}
+
+/** Returns true if the user has completed the Plan phase. */
+export function isPlanComplete(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(PLAN_COMPLETE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}

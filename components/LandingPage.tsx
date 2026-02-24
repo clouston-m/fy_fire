@@ -113,12 +113,12 @@ export function LandingPage() {
 
           {/* CTA buttons */}
           <div className="flex flex-col gap-3">
-            <Link href="/calculator">
+            <Link href="/pathway">
               <button className="w-full py-4 rounded-2xl border border-white/40 text-white font-semibold backdrop-blur-sm bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors text-base">
                 Log in
               </button>
             </Link>
-            <Link href="/calculator">
+            <Link href="/pathway">
               <button className="w-full py-4 rounded-2xl bg-white text-slate-900 font-semibold hover:bg-white/90 active:bg-white/80 transition-colors text-base">
                 Sign up
               </button>
