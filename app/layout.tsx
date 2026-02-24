@@ -43,7 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${inter.className} min-h-screen bg-background antialiased`}>
         {/* ── Main Content ── */}
-        <main className="mx-auto max-w-2xl">{children}</main>
+        <main>{children}</main>
 
         {/* Service Worker registration */}
         <script

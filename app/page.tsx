@@ -1,5 +1,5 @@
-import { FireCalculatorForm } from '@/components/calculator/FireCalculatorForm';
+import { LandingPage } from '@/components/LandingPage';
 
 export default function HomePage() {
-  return <FireCalculatorForm />;
+  return <LandingPage />;
 }
