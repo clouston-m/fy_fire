@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { GeistSans } from 'geist/font/sans';
 import './globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'fy_fire — FIRE Calculator UK',
@@ -41,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`${inter.className} min-h-screen bg-background antialiased`}>
+      <body className={`${GeistSans.className} min-h-screen bg-background antialiased`}>
         {/* ── Main Content ── */}
         <main>{children}</main>
 

@@ -10,7 +10,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 0 0% 0%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -56,6 +56,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  h1 {
+    @apply text-5xl font-bold leading-none tracking-[-0.03em];
+  }
 }
 
 @keyframes wizard-slide-forward {
@@ -78,4 +81,29 @@
 }
 .pathway-pulse-delay {
   animation: pathway-pulse 2.2s ease-out 0.55s infinite;
+}
+
+@keyframes slide-progress-fill {
+  from { transform: scaleX(0) }
+  to   { transform: scaleX(1) }
+}
+
+@keyframes slide-image-in {
+  from { transform: translateX(100%) }
+  to   { transform: translateX(0) }
+}
+@keyframes slide-image-out {
+  from { transform: translateX(0) }
+  to   { transform: translateX(-100%) }
+}
+.slide-image-in  { animation: slide-image-in  0.5s ease-out forwards; }
+.slide-image-out { animation: slide-image-out 0.5s ease-out forwards; }
+
+@keyframes text-fade-up {
+  from { opacity: 0; transform: translateY(14px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+.anim-fade-up {
+  opacity: 0;
+  animation: text-fade-up 0.4s ease-out both;
 }
