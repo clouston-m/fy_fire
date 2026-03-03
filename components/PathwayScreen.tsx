@@ -96,7 +96,7 @@ export function PathwayScreen() {
           <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-1.5">
             fy_fire
           </p>
-          <h1 className="text-white text-2xl font-bold tracking-tight">Your FIRE journey</h1>
+          <h1 className="text-white text-2xl font-semibold tracking-tight">Your FIRE journey</h1>
           <p className="text-slate-500 text-sm mt-1">Three phases to financial independence.</p>
         </div>
 

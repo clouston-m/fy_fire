@@ -264,7 +264,7 @@ export function FireCalculatorForm() {
 
       {/* Animated content */}
       <div key={stepIndex} className={`px-4 pt-10 pb-8 ${animClass}`}>
-        <h2 className="text-[1.75rem] font-bold whitespace-pre-line mb-2">
+        <h2 className="text-[1.75rem] font-semibold whitespace-pre-line mb-2">
           {'title' in step ? step.title : ''}
         </h2>
         <p className="text-muted-foreground mb-8">{'subtitle' in step ? step.subtitle : ''}</p>

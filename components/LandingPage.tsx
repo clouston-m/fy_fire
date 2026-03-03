@@ -81,10 +81,10 @@ export function LandingPage() {
       })}
 
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/80 z-[3]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent from-[29%] to-white to-[68%] z-[3]" />
 
       {/* Content */}
-      <div className="relative h-full flex flex-col px-6 pb-12 max-w-2xl mx-auto z-[4]" style={{ paddingTop: '32px' }}>
+      <div className="relative h-full flex flex-col px-6 pb-8 max-w-2xl mx-auto z-[4]" style={{ paddingTop: '32px' }}>
 
         {/* Slide indicators */}
         <div className="flex items-center gap-1.5">
@@ -114,7 +114,7 @@ export function LandingPage() {
           <div key={current}>
             {slides[current].badge && (
               <Badge
-                className="mb-4 gap-1.5 w-fit anim-fade-up"
+                className="mb-5 gap-1.5 w-fit anim-fade-up"
                 style={{ animationDelay: '400ms' }}
               >
                 {slides[current].badge.icon ?? null}
@@ -122,13 +122,13 @@ export function LandingPage() {
               </Badge>
             )}
             <h1
-              className="text-white mb-3 anim-fade-up"
+              className="text-primary mb-5 anim-fade-up"
               style={{ animationDelay: slides[current].badge ? '500ms' : '400ms' }}
             >
               {slides[current].headline}
             </h1>
             <p
-              className="text-white/80 text-base sm:text-lg max-w-xs leading-relaxed anim-fade-up"
+              className="text-primary text-base max-w-xs leading-6 anim-fade-up"
               style={{ animationDelay: slides[current].badge ? '600ms' : '500ms' }}
             >
               {slides[current].subline}
@@ -137,17 +137,17 @@ export function LandingPage() {
         </div>
 
         {/* Buttons — always visible, no animation */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <Button
             asChild
-            className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:bg-slate-700 text-white font-semibold text-base border-0"
+            className="w-full rounded-lg px-6 font-medium"
           >
             <Link href="/pathway">Get started</Link>
           </Button>
           <Button
             asChild
             variant="outline"
-            className="w-full h-14 rounded-2xl border-white/40 text-white bg-transparent hover:bg-white/10 active:bg-white/20 font-semibold text-base backdrop-blur-sm"
+            className="w-full rounded-lg px-6 font-medium border-[#d4d4d4] text-foreground bg-transparent hover:bg-black/5 active:bg-black/10"
           >
             <Link href="/pathway">Login</Link>
           </Button>

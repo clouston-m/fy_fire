@@ -57,7 +57,7 @@
     @apply bg-background text-foreground;
   }
   h1 {
-    @apply text-5xl font-bold leading-none tracking-[-0.03em];
+    @apply text-5xl font-semibold leading-none tracking-[-1.5px];
   }
 }
 
