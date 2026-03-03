@@ -60,7 +60,7 @@ export function LandingPage() {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-dvh w-full overflow-hidden">
       {/* Background slides */}
       {slides.map((slide, i) => {
         const isCurrent = i === current;
