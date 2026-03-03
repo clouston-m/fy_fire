@@ -10,7 +10,10 @@ const slides = [
     image: '/images/landing-1-background.jpg',
     headline: 'A path of less resistance',
     subline: 'Create a tailored financial plan to gain financial independence and retire early',
-    badge: null,
+    badge: {
+      icon: <img src="/icons/wand.svg" className="w-3.5 h-3.5" alt="" />,
+      label: 'Made for you',
+    },
   },
   {
     image: '/images/landing-2-background.jpg',
