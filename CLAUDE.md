@@ -25,14 +25,14 @@ Deployed on Vercel. Repo: `clouston-m/fy_fire`.
 | `lib/calculations.ts` | Pure FIRE calculation engine — no side effects |
 | `lib/storage.ts` | localStorage: save/load inputs, `markPlanComplete` / `isPlanComplete` |
 | `components/LandingPage.tsx` | Full-screen auto-advancing image carousel |
-| `components/PathwayScreen.tsx` | Phase pathway (SVG bezier path + HTML nodes) + bottom sheet |
+| `components/PathwayScreen.tsx` | Phase list (Plan/Optimise/Track) + shadcn Drawer for FIRE results |
 | `components/calculator/FireCalculatorForm.tsx` | 8-step wizard; on final step calls `markPlanComplete()` then `router.push('/pathway')` |
 | `components/calculator/FireResults.tsx` | Results cards (FIRE number, progress, ISA bridge, stats) |
-| `app/globals.css` | Tailwind base + `wizard-enter-forward/back`, `pathway-pulse` animations |
+| `app/globals.css` | Tailwind base + `wizard-enter-forward/back`, `pathway-pulse` animations (pathway-pulse unused since pathway redesign) |
 
 ## Build State
 - **Plan**: Complete. Calculator → marks complete in localStorage → `/pathway`
-- **Optimise**: Not built. Active node on pathway shows disabled "Coming soon" button
+- **Optimise**: Not built. Active node on pathway shows disabled "Next" button
 - **Track**: Not built. Locked node on pathway
 
 ## Core Data Flow
@@ -42,16 +42,16 @@ Month-by-month compound growth simulation. UK-specific: pension access age 57, I
 
 ## Architecture Rules
 - Calculations are **pure functions** in `lib/` — keep UI logic out
-- **No Radix Dialog/Sheet installed** — use custom fixed-position overlays
+- **Always use shadcn/ui components** where a suitable one exists. Only build custom UI if no shadcn component fits — and confirm with the user before doing so
 - `max-w-2xl` lives on the calculator page wrapper, not in layout
-- The pathway canvas uses `paddingBottom` aspect-ratio trick so SVG paths align with HTML node positions at any screen width
 
 ## shadcn/ui Components Available
-Button · Card · Input · Label · Slider · Progress · Badge · Separator
-**Not installed**: Dialog, Sheet, Drawer, Select, Tabs
+Button · Card · Input · Label · Slider · Progress · Badge · Separator · Drawer
+**Not installed**: Dialog, Sheet, Select, Tabs
 
 ## UI Conventions
-- Full-screen views (landing, pathway): `bg-slate-950` dark
+- Landing page: white-gradient bottom (transparent → white at 68%), dark text (`text-primary`)
+- Pathway: `bg-white` light
 - Calculator + results sheet: light/white, card-based
 - Mobile-first; touch targets min 44px
 
