@@ -46,7 +46,7 @@ Month-by-month compound growth simulation. UK-specific: pension access age 57, I
 - `max-w-2xl` lives on the calculator page wrapper, not in layout
 
 ## shadcn/ui Components Available
-Button · Card · Input · Label · Slider · Progress · Badge · Separator · Drawer
+Button · Card · Input · Label · Slider · Progress · Badge · Separator · Drawer · Alert · Field
 **Not installed**: Dialog, Sheet, Select, Tabs
 
 ## UI Conventions

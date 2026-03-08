@@ -2,15 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, CircleHelp, Info } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Field, FieldDescription } from '@/components/ui/field';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { formatCurrency } from '@/lib/calculations';
 import { loadInputs, saveInputs, markPlanComplete } from '@/lib/storage';
 import type { FireInputs } from '@/lib/types';
 import { DEFAULT_INPUTS, INPUT_CONSTRAINTS, PENSION_ACCESS_AGE } from '@/lib/types';
 
 // ─── Step Types ───────────────────────────────────────────────────────────────
+
+type StepInfo = {
+  title: string;
+  paragraphs: string[];
+};
 
 type AgeStep = {
   type: 'age';
@@ -23,6 +37,7 @@ type AgeStep = {
   /** If set, field value must be strictly greater than inputs[validateGt] */
   validateGt?: keyof FireInputs;
   validateMessage?: string;
+  info?: StepInfo;
 };
 
 type CurrencyStep = {
@@ -32,6 +47,7 @@ type CurrencyStep = {
   subtitle: string;
   hint?: string;
   allowZero?: boolean;
+  info?: StepInfo;
 };
 
 type CurrencyBreakdownField = {
@@ -46,6 +62,7 @@ type CurrencyBreakdownStep = {
   subtitle: string;
   fields: CurrencyBreakdownField[];
   totalLabel: string;
+  info?: StepInfo;
 };
 
 type SliderStep = {
@@ -58,6 +75,7 @@ type SliderStep = {
   sliderStep: number;
   unit: string;
   description: string;
+  info?: StepInfo;
 };
 
 type WizardStep = AgeStep | CurrencyStep | CurrencyBreakdownStep | SliderStep;
@@ -69,32 +87,56 @@ const STEPS: WizardStep[] = [
     type: 'age',
     field: 'currentAge',
     title: 'How old are you?',
-    subtitle: 'Your current age in years.',
+    subtitle: "We'll use this to figure out how long there is between now and your target retirement age",
     min: 18,
     max: 80,
+    info: {
+      title: 'Current age',
+      paragraphs: [
+        'Your current age tells us how long your money has to grow.',
+        "If you're 30 and want to retire at 45, that's 15 years of compound growth. If you're 40 retiring at 45, that's only 5 years — same goal, totally different math.",
+        "We also need to know if you're retiring before you can access your pension at 57, which affects how much you need in accessible savings.",
+      ],
+    },
   },
   {
     type: 'age',
     field: 'targetRetirementAge',
-    title: 'When do you want\nto retire?',
-    subtitle: 'Your target retirement age.',
+    title: 'When do you want to retire?',
+    subtitle: 'Your target retirement age',
     hint: `Pension access age is currently ${PENSION_ACCESS_AGE}. Retiring earlier requires an ISA bridge.`,
     min: 18,
     max: 85,
     validateGt: 'currentAge',
     validateMessage: 'Must be greater than your current age',
+    info: {
+      title: 'Target retirement age',
+      paragraphs: [
+        "This is the age you plan to stop working — your finish line.",
+        "In the UK, you can't access your pension until age 57. If you want to retire before that, you'll need enough in your ISA and other accessible accounts to cover the gap. We call this the ISA bridge.",
+        "Retiring at 50 with a pension? You'll need 7 years of living costs in accessible savings before your pension kicks in. The earlier you want out, the more that bridge matters.",
+      ],
+    },
   },
   {
     type: 'currency',
     field: 'monthlySpending',
-    title: 'How much will you\nspend each month\nin retirement?',
-    subtitle: 'Your expected monthly living costs once you stop working.',
+    title: 'How much will you spend each month in retirement?',
+    subtitle: 'Your expected monthly living costs once you stop working',
     hint: 'Include rent/mortgage, food, travel, leisure',
+    info: {
+      title: 'Monthly spending',
+      paragraphs: [
+        "This is the single most important number in your FIRE plan — it drives everything else.",
+        "Your FIRE number is just your annual spending multiplied by 25 (at a 4% withdrawal rate). Spend £2,000/month and you need £600,000. Spend £3,000/month and you need £900,000.",
+        "Be honest and realistic. Include everything — housing, food, travel, subscriptions, and a buffer for the unexpected. Most people underestimate, especially in the active early years of retirement.",
+      ],
+    },
   },
   {
     type: 'currency-breakdown',
-    title: "What's your current\nnet worth?",
-    subtitle: 'Total invested assets across all wrappers.',
+    title: "What's your current net worth?",
+    subtitle: 'Total invested assets across all wrappers',
     fields: [
       {
         field: 'isaBalance',
@@ -113,17 +155,33 @@ const STEPS: WizardStep[] = [
       },
     ],
     totalLabel: 'Total net worth',
+    info: {
+      title: 'Current net worth',
+      paragraphs: [
+        "This is where you're starting from — the total value of your invested assets across all accounts.",
+        "We split it by wrapper because each one has different rules. ISAs are tax-free and accessible anytime. Pensions are locked until 57 but benefit from tax relief. GIAs are flexible but gains are subject to Capital Gains Tax.",
+        "The split matters for your ISA bridge calculation. Even if your total looks healthy, we need to know how much of it you can actually reach before pension age.",
+      ],
+    },
   },
   {
     type: 'currency',
     field: 'monthlyIncome',
-    title: "What's your gross\nmonthly income?",
-    subtitle: 'Your total monthly income before tax and deductions.',
+    title: "What's your gross monthly income?",
+    subtitle: 'Your total monthly income before tax and deductions',
+    info: {
+      title: 'Gross monthly income',
+      paragraphs: [
+        "We use your gross income — before tax and National Insurance — to calculate your savings rate.",
+        "Savings rate is one of the most powerful levers in FIRE. Earning £4,000/month and investing £1,000 is a 25% savings rate. Bump that to £1,500 and you're at 37.5% — a difference of years off your timeline.",
+        "If your income varies month to month, use a typical monthly figure or your annual salary divided by 12.",
+      ],
+    },
   },
   {
     type: 'currency-breakdown',
-    title: 'How much do you\ninvest each month?',
-    subtitle: 'Monthly contributions across investment accounts.',
+    title: 'How much do you invest each month?',
+    subtitle: 'Monthly contributions across investment accounts',
     fields: [
       {
         field: 'monthlyISAContributions',
@@ -136,30 +194,54 @@ const STEPS: WizardStep[] = [
       },
     ],
     totalLabel: 'Total monthly contributions',
+    info: {
+      title: 'Monthly contributions',
+      paragraphs: [
+        "This is the engine of your FIRE plan — how much you're putting to work each month.",
+        "Make sure to include your employer's pension contributions. If your employer matches 5% of your salary, that's free money already working for you. Leaving it out would understate your progress significantly.",
+        "The ISA/pension split matters here too. Contributions going into a pension are locked until 57, while ISA contributions stay accessible. Getting the balance right is what the Optimise phase is all about.",
+      ],
+    },
   },
   {
     type: 'slider',
     field: 'withdrawalRate',
-    title: 'Safe withdrawal\nrate',
-    subtitle: "The percentage you'll draw from your portfolio each year.",
+    title: 'Safe withdrawal rate',
+    subtitle: "The percentage you'll draw from your portfolio each year",
     min: INPUT_CONSTRAINTS.withdrawalRate.min,
     max: INPUT_CONSTRAINTS.withdrawalRate.max,
     sliderStep: INPUT_CONSTRAINTS.withdrawalRate.step,
     unit: '%',
     description:
       'The 4% rule is the classic FIRE benchmark — research suggests a 4% annual withdrawal has historically lasted 30+ years. Lower rates are more conservative.',
+    info: {
+      title: 'Safe withdrawal rate',
+      paragraphs: [
+        "The safe withdrawal rate is the percentage of your portfolio you draw down each year in retirement without running out of money.",
+        "The 4% rule comes from the Trinity Study — US research showing that a 4% annual withdrawal has survived virtually every 30-year market period in history. Most UK FIRE planners use 3.5–4% to account for a longer retirement and UK market differences.",
+        "Retiring at 40 means your money needs to last 50+ years. In that case, 3.5% gives you more margin. If you plan to retire closer to 60, 4% or slightly above is more reasonable.",
+      ],
+    },
   },
   {
     type: 'slider',
     field: 'expectedReturn',
-    title: 'Expected annual\nreturn',
-    subtitle: 'Your estimated average annual portfolio growth.',
+    title: 'Expected annual return',
+    subtitle: 'Your estimated average annual portfolio growth',
     min: INPUT_CONSTRAINTS.expectedReturn.min,
     max: INPUT_CONSTRAINTS.expectedReturn.max,
     sliderStep: INPUT_CONSTRAINTS.expectedReturn.step,
     unit: '%',
     description:
       'Global index funds have historically returned 6–8% annually before inflation. A conservative estimate of 5–6% is common for long-term planning.',
+    info: {
+      title: 'Expected annual return',
+      paragraphs: [
+        "This is your assumed average annual growth rate across your entire portfolio.",
+        "Global index funds tracking the MSCI World or S&P 500 have historically returned around 7–10% annually before inflation. After inflation (typically 2–3%), real returns tend to sit around 5–7%.",
+        "We'd suggest using 6% as a balanced starting point — optimistic enough to be motivating, conservative enough to be realistic. If you're heavily weighted in bonds or cash, lean lower. If you're 100% in equities with a long horizon, 7% is defensible.",
+      ],
+    },
   },
 ];
 
@@ -183,6 +265,7 @@ export function FireCalculatorForm() {
   const [inputs, setInputs] = useState<FireInputs>(DEFAULT_INPUTS);
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
+  const [infoOpen, setInfoOpen] = useState(false);
 
   // Load persisted inputs on mount
   useEffect(() => {
@@ -216,11 +299,9 @@ export function FireCalculatorForm() {
 
   const animClass = direction === 'forward' ? 'wizard-enter-forward' : 'wizard-enter-back';
 
-  // ── Input step screen ─────────────────────────────────────────────────────
-
   const step = STEPS[stepIndex];
 
-  // Determine whether Continue is enabled
+  // Determine whether Next is enabled
   let canContinue = true;
   if (step.type === 'age') {
     const value = inputs[step.field] as number;
@@ -233,41 +314,48 @@ export function FireCalculatorForm() {
   }
   // 'currency-breakdown' and 'slider' are always continuable
 
+  const showValidation =
+    step.type === 'age' &&
+    !canContinue &&
+    step.validateMessage &&
+    (inputs[step.field] as number) > 0;
+
   return (
-    <div>
-      {/* Progress bar */}
-      <div className="h-1 bg-muted w-full">
-        <div
-          className="h-full bg-primary transition-[width] duration-500"
-          style={{ width: `${((stepIndex + 1) / TOTAL_STEPS) * 100}%` }}
-        />
+    <div className="min-h-dvh flex flex-col">
+      {/* Top section: progress bar + nav row */}
+      <div className="px-8 pt-6 flex flex-col gap-4">
+        <div className="h-2 bg-neutral-200 rounded-full w-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-[width] duration-500"
+            style={{ width: `${((stepIndex + 1) / TOTAL_STEPS) * 100}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          {stepIndex > 0 ? (
+            <button
+              onClick={goBack}
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Back"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <div />
+          )}
+          <span className="text-sm font-medium text-muted-foreground">
+            {stepIndex + 1}/{TOTAL_STEPS}
+          </span>
+        </div>
       </div>
 
-      {/* Nav bar */}
-      <div className="flex items-center justify-between px-4 min-h-[44px]">
-        {stepIndex > 0 ? (
-          <button
-            onClick={goBack}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] min-w-[44px]"
-            aria-label="Back"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back
-          </button>
-        ) : (
-          <div />
-        )}
-        <span className="text-sm text-muted-foreground">
-          {stepIndex + 1} / {TOTAL_STEPS}
-        </span>
-      </div>
-
-      {/* Animated content */}
-      <div key={stepIndex} className={`px-4 pt-10 pb-8 ${animClass}`}>
-        <h2 className="text-[1.75rem] font-semibold whitespace-pre-line mb-2">
+      {/* Animated content — vertically centred */}
+      <div key={stepIndex} className={`flex-1 flex flex-col justify-center px-8 py-4 ${animClass}`}>
+        <div className="flex flex-col gap-5">
+        <h2 className="text-3xl font-semibold tracking-[-1px]">
           {'title' in step ? step.title : ''}
         </h2>
-        <p className="text-muted-foreground mb-8">{'subtitle' in step ? step.subtitle : ''}</p>
+        <p>{'subtitle' in step ? step.subtitle : ''}</p>
 
         {step.type === 'age' && (
           <AgeStepInput
@@ -275,6 +363,7 @@ export function FireCalculatorForm() {
             value={inputs[step.field] as number}
             onChange={(v) => updateField(step.field, v)}
             onEnter={canContinue ? goNext : undefined}
+            validationMessage={showValidation ? step.validateMessage : undefined}
           />
         )}
 
@@ -303,21 +392,42 @@ export function FireCalculatorForm() {
             onChange={(v) => updateField(step.field, v)}
           />
         )}
-
-        <Button
-          className="w-full h-14 mt-10 text-base"
-          onClick={goNext}
-          disabled={!canContinue}
-        >
-          {stepIndex === TOTAL_STEPS - 1 ? 'See my FIRE number →' : 'Continue'}
-        </Button>
-
-        {/* Validation message for age steps */}
-        {step.type === 'age' && !canContinue && step.validateMessage &&
-          (inputs[step.field] as number) > 0 && (
-          <p className="mt-3 text-center text-sm text-destructive">{step.validateMessage}</p>
-        )}
+        </div>
       </div>
+
+      {/* Bottom bar */}
+      <div className="px-8 pb-8 pt-2 flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-lg"
+          disabled={!step.info}
+          onClick={() => step.info && setInfoOpen(true)}
+        >
+          <CircleHelp className="h-4 w-4" />
+        </Button>
+        <Button className="flex-1 h-10" onClick={goNext} disabled={!canContinue}>
+          {stepIndex === TOTAL_STEPS - 1 ? 'See my FIRE number' : 'Next'}
+        </Button>
+      </div>
+
+      {/* Info drawer */}
+      {step.info && (
+        <Drawer open={infoOpen} onOpenChange={setInfoOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle className="text-2xl font-semibold tracking-[-1px]">
+                {step.info.title}
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-8 space-y-[14px]">
+              {step.info.paragraphs.map((p, i) => (
+                <p key={i} className="text-sm leading-5">{p}</p>
+              ))}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
     </div>
   );
 }
@@ -329,9 +439,10 @@ interface AgeStepInputProps {
   value: number;
   onChange: (v: number) => void;
   onEnter?: () => void;
+  validationMessage?: string;
 }
 
-function AgeStepInput({ step, value, onChange, onEnter }: AgeStepInputProps) {
+function AgeStepInput({ step, value, onChange, onEnter, validationMessage }: AgeStepInputProps) {
   const [displayValue, setDisplayValue] = useState(value === 0 ? '' : String(value));
 
   useEffect(() => {
@@ -339,34 +450,35 @@ function AgeStepInput({ step, value, onChange, onEnter }: AgeStepInputProps) {
   }, [value]);
 
   return (
-    <div>
-      {step.hint && (
-        <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground mb-6 leading-relaxed">
-          {step.hint}
-        </div>
+    <div className="space-y-5">
+      <Input
+        type="number"
+        inputMode="numeric"
+        min={step.min}
+        max={step.max}
+        step="1"
+        placeholder="—"
+        className="tabular-nums"
+        value={displayValue}
+        onChange={(e) => {
+          setDisplayValue(e.target.value);
+          const n = parseInt(e.target.value, 10);
+          onChange(isNaN(n) || n < 0 ? 0 : n);
+        }}
+        onBlur={() => setDisplayValue(value === 0 ? '' : String(value))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && onEnter) onEnter();
+        }}
+      />
+      {validationMessage && (
+        <p className="text-sm text-destructive">{validationMessage}</p>
       )}
-      <div className="flex items-end gap-3">
-        <input
-          type="number"
-          inputMode="numeric"
-          min={step.min}
-          max={step.max}
-          step="1"
-          placeholder="—"
-          className="w-full h-14 px-4 text-2xl border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0 tabular-nums"
-          value={displayValue}
-          onChange={(e) => {
-            setDisplayValue(e.target.value);
-            const n = parseInt(e.target.value, 10);
-            onChange(isNaN(n) || n < 0 ? 0 : n);
-          }}
-          onBlur={() => setDisplayValue(value === 0 ? '' : String(value))}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && onEnter) onEnter();
-          }}
-        />
-        <span className="text-2xl text-muted-foreground mb-3 shrink-0">years old</span>
-      </div>
+      {step.hint && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>{step.hint}</AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
@@ -388,19 +500,18 @@ function CurrencyStepInput({ step, value, onChange, onEnter }: CurrencyStepInput
   }, [value]);
 
   return (
-    <div>
-      {step.hint && <p className="text-sm text-muted-foreground mb-4">{step.hint}</p>}
+    <Field>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground select-none">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none">
           £
         </span>
-        <input
+        <Input
           type="number"
           inputMode="decimal"
           min={0}
           step="100"
           placeholder="0"
-          className="w-full h-14 pl-10 pr-4 text-2xl border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0"
+          className="pl-7"
           value={displayValue}
           onChange={(e) => {
             setDisplayValue(e.target.value);
@@ -412,7 +523,8 @@ function CurrencyStepInput({ step, value, onChange, onEnter }: CurrencyStepInput
           }}
         />
       </div>
-    </div>
+      {step.hint && <FieldDescription>{step.hint}</FieldDescription>}
+    </Field>
   );
 }
 
@@ -434,7 +546,7 @@ function CurrencyBreakdownStepInput({
   const total = calcBreakdownTotal(step, inputs);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {step.fields.map((fieldDef) => (
         <BreakdownFieldInput
           key={String(fieldDef.field)}
@@ -447,7 +559,7 @@ function CurrencyBreakdownStepInput({
 
       {/* Running total */}
       <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3 mt-2">
-        <span className="text-sm text-muted-foreground">{step.totalLabel}</span>
+        <span className="text-sm">{step.totalLabel}</span>
         <span className="font-bold tabular-nums text-foreground">{formatCurrency(total)}</span>
       </div>
     </div>
@@ -469,22 +581,19 @@ function BreakdownFieldInput({ fieldDef, value, onChange, onEnter }: BreakdownFi
   }, [value]);
 
   return (
-    <div>
-      <label className="block text-sm font-medium mb-1">{fieldDef.label}</label>
-      {fieldDef.hint && (
-        <p className="text-xs text-muted-foreground mb-1.5">{fieldDef.hint}</p>
-      )}
+    <Field>
+      <p className="text-sm font-medium">{fieldDef.label}</p>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-muted-foreground select-none">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none">
           £
         </span>
-        <input
+        <Input
           type="number"
           inputMode="decimal"
           min={0}
           step="100"
           placeholder="0"
-          className="w-full h-12 pl-9 pr-4 text-xl border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0"
+          className="pl-7"
           value={displayValue}
           onChange={(e) => {
             setDisplayValue(e.target.value);
@@ -496,7 +605,8 @@ function BreakdownFieldInput({ fieldDef, value, onChange, onEnter }: BreakdownFi
           }}
         />
       </div>
-    </div>
+      {fieldDef.hint && <FieldDescription>{fieldDef.hint}</FieldDescription>}
+    </Field>
   );
 }
 
@@ -514,7 +624,7 @@ function SliderStepInput({ step, value, onChange }: SliderStepInputProps) {
     <div className="space-y-8">
       <div className="text-center">
         <span className="text-7xl font-bold tabular-nums">{value.toFixed(decimals)}</span>
-        <span className="text-3xl font-bold text-muted-foreground">{step.unit}</span>
+        <span className="text-3xl font-bold">{step.unit}</span>
       </div>
       <Slider
         min={step.min}
@@ -525,19 +635,14 @@ function SliderStepInput({ step, value, onChange }: SliderStepInputProps) {
         className="py-1"
         aria-label={step.title}
       />
-      <div className="flex justify-between text-sm text-muted-foreground">
-        <span>
-          {step.min}
-          {step.unit}
-        </span>
-        <span>
-          {step.max}
-          {step.unit}
-        </span>
+      <div className="flex justify-between text-sm">
+        <span>{step.min}{step.unit}</span>
+        <span>{step.max}{step.unit}</span>
       </div>
-      <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground leading-relaxed">
-        {step.description}
-      </div>
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>{step.description}</AlertDescription>
+      </Alert>
     </div>
   );
 }
